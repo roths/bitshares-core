@@ -24,6 +24,7 @@
 #pragma once
 
 #include <graphene/app/database_api.hpp>
+#include <graphene/app/analysis_api.hpp>
 
 #include <graphene/chain/protocol/types.hpp>
 #include <graphene/chain/protocol/confidential.hpp>
@@ -529,6 +530,7 @@ namespace graphene { namespace app {
          fc::api<network_broadcast_api> network_broadcast()const;
          /// @brief Retrieve the database API
          fc::api<database_api> database()const;
+         fc::api<analysis_api> analysis()const;
          /// @brief Retrieve the history API
          fc::api<history_api> history()const;
          /// @brief Retrieve the network node API
@@ -555,6 +557,7 @@ namespace graphene { namespace app {
          optional< fc::api<crypto_api> > _crypto_api;
          optional< fc::api<asset_api> > _asset_api;
          optional< fc::api<orders_api> > _orders_api;
+         optional< fc::api<analysis_api> > _analysis_api;
          optional< fc::api<graphene::debug_witness::debug_api> > _debug_api;
    };
 
@@ -631,4 +634,5 @@ FC_API(graphene::app::login_api,
        (asset)
        (orders)
        (debug)
+       (analysis)
      )

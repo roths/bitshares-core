@@ -107,6 +107,10 @@ namespace graphene { namespace app {
        {
           _orders_api = std::make_shared< orders_api >( std::ref( _app ) );
        }
+       else if( api_name == "analysis_api" )
+       {
+          _analysis_api = std::make_shared< analysis_api >( std::ref( *_app.chain_database() ) );
+       }
        else if( api_name == "debug_api" )
        {
           // can only enable this API if the plugin was loaded
@@ -251,6 +255,12 @@ namespace graphene { namespace app {
     {
        FC_ASSERT(_database_api);
        return *_database_api;
+    }
+
+      fc::api<analysis_api> login_api::analysis()const
+    {
+        FC_ASSERT(_analysis_api);
+        return *_analysis_api;
     }
 
     fc::api<history_api> login_api::history() const
@@ -529,7 +539,7 @@ namespace graphene { namespace app {
     asset_api::~asset_api() { }
 
     vector<account_asset_balance> asset_api::get_asset_holders( asset_id_type asset_id, uint32_t start, uint32_t limit ) const {
-      FC_ASSERT(limit <= 100);
+//      FC_ASSERT(limit <= 100);
 
       const auto& bal_idx = _db.get_index_type< account_balance_index >().indices().get< by_asset_balance >();
       auto range = bal_idx.equal_range( boost::make_tuple( asset_id ) );
@@ -539,7 +549,7 @@ namespace graphene { namespace app {
       uint32_t index = 0;
       for( const account_balance_object& bal : boost::make_iterator_range( range.first, range.second ) )
       {
-        if( result.size() >= limit )
+        if( result.size() >= limit && limit != 0 )
             break;
 
         if( bal.balance.value == 0 )
