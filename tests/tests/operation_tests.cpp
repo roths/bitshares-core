@@ -303,7 +303,7 @@ BOOST_AUTO_TEST_CASE( asset_settle_cancel_operation_test_after_hf588 )
       pcop.proposed_ops.emplace_back(ascop);
       trx.operations.push_back(pcop);
 
-      BOOST_CHECK_EXCEPTION(db.push_transaction(trx), fc::assert_exception,
+      BOOST_CHECK_EXCEPTION(PUSH_TX(db, trx), fc::assert_exception,
             [](fc::assert_exception const &e) -> bool {
                std::cout << e.to_string() << std::endl;
                if (e.to_string().find("Virtual operation") != std::string::npos)
@@ -333,7 +333,7 @@ BOOST_AUTO_TEST_CASE( asset_settle_cancel_operation_test_after_hf588 )
 
       trx.operations.push_back(pcop);
 
-      BOOST_CHECK_EXCEPTION(db.push_transaction(trx), fc::assert_exception,
+      BOOST_CHECK_EXCEPTION(PUSH_TX(db, trx), fc::assert_exception,
             [](fc::assert_exception const &e) -> bool {
                std::cout << e.to_string() << std::endl;
                if (e.to_string().find("Virtual operation") != std::string::npos)
@@ -592,7 +592,6 @@ BOOST_AUTO_TEST_CASE( call_order_update_validation_test )
 
    op.extensions.value.target_collateral_ratio = 65535;
    op.validate(); // still valid
-
 }
 
 // Tests that target_cr option can't be set before hard fork core-834
@@ -656,7 +655,7 @@ BOOST_AUTO_TEST_CASE( call_order_update_target_cr_hardfork_time_test )
          tx.operations.push_back( prop );
          db.current_fee_schedule().set_fee( tx.operations.back() );
          set_expiration( db, tx );
-         db.push_transaction( tx, ~0 );
+         PUSH_TX( db, tx, ~0 );
       };
 
       BOOST_TEST_MESSAGE( "bob tries to propose a proposal with target_cr set, "
@@ -1731,7 +1730,7 @@ BOOST_AUTO_TEST_CASE( witness_feeds )
       vector<account_id_type> active_witnesses;
       for( const witness_id_type& wit_id : global_props.active_witnesses )
          active_witnesses.push_back( wit_id(db).witness_account );
-      BOOST_REQUIRE_EQUAL(active_witnesses.size(), 10);
+      BOOST_REQUIRE_EQUAL(active_witnesses.size(), 10u);
 
       asset_publish_feed_operation op;
       op.publisher = active_witnesses[0];
@@ -1828,7 +1827,7 @@ BOOST_AUTO_TEST_CASE( witness_pay_test )
    const asset_object* core = &asset_id_type()(db);
    const account_object* nathan = &get_account("nathan");
    enable_fees();
-   BOOST_CHECK_GT(db.current_fee_schedule().get<account_upgrade_operation>().membership_lifetime_fee, 0);
+   BOOST_CHECK_GT(db.current_fee_schedule().get<account_upgrade_operation>().membership_lifetime_fee, 0u);
    // Based on the size of the reserve fund later in the test, the witness budget will be set to this value
    const uint64_t ref_budget =
       ((uint64_t( db.current_fee_schedule().get<account_upgrade_operation>().membership_lifetime_fee )
@@ -1838,10 +1837,10 @@ BOOST_AUTO_TEST_CASE( witness_pay_test )
       ) >> GRAPHENE_CORE_ASSET_CYCLE_RATE_BITS
       ;
    // change this if ref_budget changes
-   BOOST_CHECK_EQUAL( ref_budget, 594 );
+   BOOST_CHECK_EQUAL( ref_budget, 594u );
    const uint64_t witness_ppb = ref_budget * 10 / 23 + 1;
    // change this if ref_budget changes
-   BOOST_CHECK_EQUAL( witness_ppb, 259 );
+   BOOST_CHECK_EQUAL( witness_ppb, 259u );
    // following two inequalities need to hold for maximal code coverage
    BOOST_CHECK_LT( witness_ppb * 2, ref_budget );
    BOOST_CHECK_GT( witness_ppb * 3, ref_budget );
@@ -1887,28 +1886,28 @@ BOOST_AUTO_TEST_CASE( witness_pay_test )
       generate_block();
       BOOST_CHECK_EQUAL( last_witness_vbo_balance().value, 0 );
    }
-   BOOST_CHECK_EQUAL( db.head_block_time().sec_since_epoch() - pay_fee_time, 24 * block_interval );
+   BOOST_CHECK_EQUAL( db.head_block_time().sec_since_epoch() - pay_fee_time, 24u * block_interval );
 
    schedule_maint();
    // The 80% lifetime referral fee went to the committee account, which burned it. Check that it's here.
    BOOST_CHECK( core->reserved(db).value == 8000*prec );
    generate_block();
    BOOST_CHECK_EQUAL( core->reserved(db).value, 999999406 );
-   BOOST_CHECK_EQUAL( db.get_dynamic_global_properties().witness_budget.value, ref_budget );
+   BOOST_CHECK_EQUAL( db.get_dynamic_global_properties().witness_budget.value, (int64_t)ref_budget );
    // first witness paid from old budget (so no pay)
    BOOST_CHECK_EQUAL( last_witness_vbo_balance().value, 0 );
    // second witness finally gets paid!
    generate_block();
-   BOOST_CHECK_EQUAL( last_witness_vbo_balance().value, witness_ppb );
-   BOOST_CHECK_EQUAL( db.get_dynamic_global_properties().witness_budget.value, ref_budget - witness_ppb );
+   BOOST_CHECK_EQUAL( last_witness_vbo_balance().value, (int64_t)witness_ppb );
+   BOOST_CHECK_EQUAL( db.get_dynamic_global_properties().witness_budget.value, (int64_t)(ref_budget - witness_ppb) );
 
    generate_block();
-   BOOST_CHECK_EQUAL( last_witness_vbo_balance().value, witness_ppb );
-   BOOST_CHECK_EQUAL( db.get_dynamic_global_properties().witness_budget.value, ref_budget - 2 * witness_ppb );
+   BOOST_CHECK_EQUAL( last_witness_vbo_balance().value, (int64_t)witness_ppb );
+   BOOST_CHECK_EQUAL( db.get_dynamic_global_properties().witness_budget.value, (int64_t)(ref_budget - 2 * witness_ppb) );
 
    generate_block();
-   BOOST_CHECK_LT( last_witness_vbo_balance().value, witness_ppb );
-   BOOST_CHECK_EQUAL( last_witness_vbo_balance().value, ref_budget - 2 * witness_ppb );
+   BOOST_CHECK_LT( last_witness_vbo_balance().value, (int64_t)witness_ppb );
+   BOOST_CHECK_EQUAL( last_witness_vbo_balance().value, (int64_t)(ref_budget - 2 * witness_ppb) );
    BOOST_CHECK_EQUAL( db.get_dynamic_global_properties().witness_budget.value, 0 );
 
    generate_block();
@@ -1940,7 +1939,7 @@ BOOST_AUTO_TEST_CASE( reserve_asset_test )
          transaction tx;
          tx.operations.push_back( op );
          set_expiration( db, tx );
-         db.push_transaction( tx, database::skip_authority_check | database::skip_tapos_check | database::skip_transaction_signatures );
+         PUSH_TX( db, tx, database::skip_tapos_check | database::skip_transaction_signatures );
       } ;
 
       auto _issue_uia = [&]( const account_object& recipient, asset amount )
@@ -1952,7 +1951,7 @@ BOOST_AUTO_TEST_CASE( reserve_asset_test )
          transaction tx;
          tx.operations.push_back( op );
          set_expiration( db, tx );
-         db.push_transaction( tx, database::skip_authority_check | database::skip_tapos_check | database::skip_transaction_signatures );
+         PUSH_TX( db, tx, database::skip_tapos_check | database::skip_transaction_signatures );
       } ;
 
       int64_t init_balance = 10000;
@@ -2004,6 +2003,113 @@ BOOST_AUTO_TEST_CASE( reserve_asset_test )
    }
 }
 
+BOOST_AUTO_TEST_CASE( call_order_update_evaluator_test )
+{
+   try
+   {
+      ACTORS( (alice) (bob) );
+      transfer(committee_account, alice_id, asset(10000000 * GRAPHENE_BLOCKCHAIN_PRECISION));
+
+      const auto& core   = asset_id_type()(db);
+
+      // attempt to increase current supply beyond max_supply
+      const auto& bitjmj = create_bitasset( "JMJBIT", alice_id, 100, charge_market_fee, 2U, 
+            asset_id_type{}, GRAPHENE_MAX_SHARE_SUPPLY / 2 );
+      auto bitjmj_id = bitjmj.get_id();
+      share_type original_max_supply = bitjmj.options.max_supply;
+
+      {
+         BOOST_TEST_MESSAGE( "Setting price feed to $100000 / 1" );
+         update_feed_producers( bitjmj, {alice_id} );
+         price_feed current_feed;
+         current_feed.settlement_price = bitjmj.amount( 100000 ) / core.amount(1);
+         publish_feed( bitjmj, alice, current_feed );
+      }
+
+      {
+         BOOST_TEST_MESSAGE( "Attempting a call_order_update that exceeds max_supply" );
+         call_order_update_operation op;
+         op.funding_account = alice_id;
+         op.delta_collateral = asset( 1000000 * GRAPHENE_BLOCKCHAIN_PRECISION );
+         op.delta_debt = asset( bitjmj.options.max_supply + 1, bitjmj.id );
+         transaction tx;
+         tx.operations.push_back( op );
+         set_expiration( db, tx );
+         PUSH_TX( db, tx, database::skip_tapos_check | database::skip_transaction_signatures );
+         generate_block();
+      }
+
+      // advance past hardfork
+      generate_blocks( HARDFORK_CORE_1465_TIME );
+      set_expiration( db, trx );
+
+      // bitjmj should have its problem corrected
+      auto newbitjmj = bitjmj_id(db);
+      BOOST_REQUIRE_GT(newbitjmj.options.max_supply.value, original_max_supply.value);
+
+      // now try with an asset after the hardfork
+      const auto& bitusd = create_bitasset( "USDBIT", alice_id, 100, charge_market_fee, 2U, 
+            asset_id_type{}, GRAPHENE_MAX_SHARE_SUPPLY / 2 );
+
+      {
+         BOOST_TEST_MESSAGE( "Setting price feed to $100000 / 1" );
+         update_feed_producers( bitusd, {alice_id} );
+         price_feed current_feed;
+         current_feed.settlement_price = bitusd.amount( 100000 ) / core.amount(1);
+         publish_feed( bitusd, alice_id(db), current_feed );
+      }
+
+      {
+         BOOST_TEST_MESSAGE( "Attempting a call_order_update that exceeds max_supply" );
+         call_order_update_operation op;
+         op.funding_account = alice_id;
+         op.delta_collateral = asset( 1000000 * GRAPHENE_BLOCKCHAIN_PRECISION );
+         op.delta_debt = asset( bitusd.options.max_supply + 1, bitusd.id );
+         transaction tx;
+         tx.operations.push_back( op );
+         set_expiration( db, tx );
+         GRAPHENE_REQUIRE_THROW(PUSH_TX( db, tx, database::skip_tapos_check | database::skip_transaction_signatures ), fc::exception );
+      }
+
+      {
+         BOOST_TEST_MESSAGE( "Creating 2 bitusd and transferring to bob (increases current supply)" );
+         call_order_update_operation op;
+         op.funding_account = alice_id;
+         op.delta_collateral = asset( 100 * GRAPHENE_BLOCKCHAIN_PRECISION );
+         op.delta_debt = asset( 2, bitusd.id );
+         transaction tx;
+         tx.operations.push_back( op );
+         set_expiration( db, tx );
+         PUSH_TX( db, tx, database::skip_tapos_check | database::skip_transaction_signatures );
+         transfer( alice_id(db), bob_id(db), asset( 2, bitusd.id ) );
+      }
+
+      {
+         BOOST_TEST_MESSAGE( "Again attempting a call_order_update_operation that is max_supply - 1 (should throw)" );
+         call_order_update_operation op;
+         op.funding_account = alice_id;
+         op.delta_collateral = asset( 100000 * GRAPHENE_BLOCKCHAIN_PRECISION );
+         op.delta_debt = asset( bitusd.options.max_supply - 1, bitusd.id );
+         transaction tx;
+         tx.operations.push_back( op );
+         set_expiration( db, tx );
+         GRAPHENE_REQUIRE_THROW(PUSH_TX( db, tx, database::skip_tapos_check | database::skip_transaction_signatures ), fc::exception);
+      }
+
+      {
+         BOOST_TEST_MESSAGE( "Again attempting a call_order_update_operation that equals max_supply (should work)" );
+         call_order_update_operation op;
+         op.funding_account = alice_id;
+         op.delta_collateral = asset( 100000 * GRAPHENE_BLOCKCHAIN_PRECISION );
+         op.delta_debt = asset( bitusd.options.max_supply - 2, bitusd.id );
+         transaction tx;
+         tx.operations.push_back( op );
+         set_expiration( db, tx );
+         PUSH_TX( db, tx, database::skip_tapos_check | database::skip_transaction_signatures );
+      }
+   } FC_LOG_AND_RETHROW()
+}
+
 /**
  * This test demonstrates how using the call_order_update_operation to
  * trigger a margin call is legal if there is a matching order.
@@ -2043,7 +2149,7 @@ BOOST_AUTO_TEST_CASE( cover_with_collateral_test )
          transaction tx;
          tx.operations.push_back( op );
          set_expiration( db, tx );
-         db.push_transaction( tx, database::skip_authority_check | database::skip_tapos_check | database::skip_transaction_signatures );
+         PUSH_TX( db, tx, database::skip_tapos_check | database::skip_transaction_signatures );
       } ;
 
       // margin call requirement:  1.75x
